@@ -143,30 +143,43 @@ void PrintTupleDef( int nNumFields, std::string const &className, bool bUseCompa
 	PrintLn( "template<typename ...types> class ", className, ";\n" );
 	std::string sTemplateArgs = "<";
 	std::string sTypeList = "";
+	std::string sTemplateArgsMoveAssign = "<";
+	std::string sTypeListMoveAssign = "";
 	for( int nArg = 0; nArg < nNumFields; nArg++ )
 	{
 		sTemplateArgs += "typename Type";
+		sTemplateArgsMoveAssign += "typename Type";
 		if ( nArg > 9 )
 		{
 			sTemplateArgs.push_back( '0' + ( nArg / 10 ) );
+			sTemplateArgsMoveAssign.push_back( '0' + ( nArg / 10 ) );
 		}
 		sTemplateArgs.push_back( '0' + ( nArg % 10 ) );
+		sTemplateArgsMoveAssign.push_back( '0' + ( nArg % 10 ) );
 		sTemplateArgs += "_t";
+		sTemplateArgsMoveAssign += "_t2";
 		sTypeList += "Type";
+		sTypeListMoveAssign += "Type";
 		if ( nArg > 9 )
 		{
 			sTypeList.push_back( '0' + ( nArg / 10 ) );
+			sTypeListMoveAssign.push_back( '0' + ( nArg / 10 ) );
 		}
 		sTypeList.push_back( '0' + ( nArg % 10 ) );
+		sTypeListMoveAssign.push_back( '0' + ( nArg % 10 ) );
 		sTypeList += "_t";
+		sTypeListMoveAssign += "_t2";
 
 		if ( nArg != nNumFields -1 )
 		{
 			sTemplateArgs += ", ";
 			sTypeList += ",";
+			sTemplateArgsMoveAssign += ", ";
+			sTypeListMoveAssign += ",";
 		}
 	}
 	sTemplateArgs += ">";
+	sTemplateArgsMoveAssign += ">";
 	
 	if ( s_sNameSpace.size() )
 	{
@@ -220,6 +233,20 @@ void PrintTupleDef( int nNumFields, std::string const &className, bool bUseCompa
 			PrintLn( "}" );
 		}
 	}
+	
+	PrintLn();
+	PrintLn( "template ", sTemplateArgsMoveAssign );
+	PrintLn( "FORCEINLINE ", s_sConstExpr, "auto & operator=( CTuple<", sTypeListMoveAssign, "> &&tuple )" );
+	PrintLn( "// Move assign from rvr tuple to enable std::tie like behaviour" );
+	PrintLn( "{" );
+	AdjustIndent( 1 );
+	for( int i = 0; i < nNumFields; i++ )
+	{
+		PrintLn( "_", i, " = std::move(tuple._", i, ");" );
+	}
+	PrintLn( "return *this;" );
+	AdjustIndent( -1 );
+	PrintLn( "}" );
 	
 	PrintLn();
 	PrintLn( "FORCEINLINE ", s_sConstExpr, "auto & operator=( std::tuple<", sTypeList, "> const &tuple )" );
@@ -371,6 +398,17 @@ void GenTuple( std::string const &className, bool bCompat )
 	PrintLn( "}\n" );
 }
 
+void GenTie()
+{
+	PrintLn( "template<typename... types>" );
+	PrintLn( "constexpr CTuple<types&...> CTie(types&... args) noexcept" );
+	PrintLn( "{" );
+	AdjustIndent(1);
+	PrintLn( "return {args...};" );
+	AdjustIndent(-1);
+	PrintLn( "}" );
+}
+
 int main( int argc, char **argv )
 {
 	CheesyArgumentParser( argc, argv );
@@ -391,5 +429,6 @@ int main( int argc, char **argv )
 	AdjustIndent( -1 );
 	PrintLn( "#endif" );
 	GenTuple( s_sTupleClassName, false );
+	GenTie();
 	GenTuple( s_sCompatibleTupleClassName, true );
 }
